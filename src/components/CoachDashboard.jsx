@@ -51,6 +51,7 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
     ageGroup: '',
     seasonGoal: '',
   });
+  const [editingTeamId, setEditingTeamId] = useState(null);
   const [playerForm, setPlayerForm] = useState({
     teamId: storedDashboard.data.teams[0]?.id ?? '',
     name: '',
@@ -58,6 +59,7 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
     position: '',
     focus: '',
   });
+  const [editingPlayerId, setEditingPlayerId] = useState(null);
   const [planForm, setPlanForm] = useState({
     teamId: storedDashboard.data.teams[0]?.id ?? '',
     opponent: '',
@@ -66,6 +68,7 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
     rotation: '',
     pointsOfEmphasis: '',
   });
+  const [editingPlanId, setEditingPlanId] = useState(null);
   const [trainingForm, setTrainingForm] = useState({
     teamId: storedDashboard.data.teams[0]?.id ?? '',
     practiceDate: '',
@@ -75,6 +78,7 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
     intensity: 'Medium',
     coachingNotes: '',
   });
+  const [editingTrainingId, setEditingTrainingId] = useState(null);
   const [reflectionForm, setReflectionForm] = useState({
     teamId: storedDashboard.data.teams[0]?.id ?? '',
     opponent: '',
@@ -83,11 +87,13 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
     needsWork: '',
     nextPractice: '',
   });
+  const [editingReflectionId, setEditingReflectionId] = useState(null);
   const [journalForm, setJournalForm] = useState({
     title: '',
     category: 'General',
     content: '',
   });
+  const [editingJournalId, setEditingJournalId] = useState(null);
   const [selectedPlanId, setSelectedPlanId] = useState(storedDashboard.selectedPlanId);
   const [liveGame, setLiveGame] = useState(storedDashboard.liveGame);
   const [syncStatus, setSyncStatus] = useState(
@@ -237,8 +243,85 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
     );
   }, [liveGame.playerStats]);
 
+  const resetTeamForm = (teamId = data.teams[0]?.id ?? '') => {
+    setTeamForm({ name: '', ageGroup: '', seasonGoal: '' });
+    setEditingTeamId(null);
+    setPlayerForm((current) => ({ ...current, teamId: current.teamId || teamId }));
+    setTrainingForm((current) => ({ ...current, teamId: current.teamId || teamId }));
+    setPlanForm((current) => ({ ...current, teamId: current.teamId || teamId }));
+    setReflectionForm((current) => ({ ...current, teamId: current.teamId || teamId }));
+  };
+
+  const resetPlayerForm = () => {
+    setPlayerForm((current) => ({
+      ...current,
+      name: '',
+      number: '',
+      position: '',
+      focus: '',
+    }));
+    setEditingPlayerId(null);
+  };
+
+  const resetTrainingForm = () => {
+    setTrainingForm((current) => ({
+      ...current,
+      practiceDate: '',
+      theme: '',
+      objectives: '',
+      drills: '',
+      intensity: 'Medium',
+      coachingNotes: '',
+    }));
+    setEditingTrainingId(null);
+  };
+
+  const resetPlanForm = () => {
+    setPlanForm((current) => ({
+      ...current,
+      opponent: '',
+      gameDate: '',
+      objectives: '',
+      rotation: '',
+      pointsOfEmphasis: '',
+    }));
+    setEditingPlanId(null);
+  };
+
+  const resetReflectionForm = () => {
+    setReflectionForm((current) => ({
+      ...current,
+      opponent: '',
+      result: '',
+      whatWorked: '',
+      needsWork: '',
+      nextPractice: '',
+    }));
+    setEditingReflectionId(null);
+  };
+
+  const resetJournalForm = () => {
+    setJournalForm({
+      title: '',
+      category: 'General',
+      content: '',
+    });
+    setEditingJournalId(null);
+  };
+
   const handleAddTeam = (event) => {
     event.preventDefault();
+    if (editingTeamId) {
+      setData((current) => ({
+        ...current,
+        teams: current.teams.map((team) =>
+          team.id === editingTeamId ? { ...team, ...teamForm } : team,
+        ),
+      }));
+      resetTeamForm();
+      return;
+    }
+
     const nextTeam = {
       id: createId('team'),
       ...teamForm,
@@ -257,21 +340,42 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
 
   const handleAddPlayer = (event) => {
     event.preventDefault();
+    if (editingPlayerId) {
+      setData((current) => ({
+        ...current,
+        players: current.players.map((player) =>
+          player.id === editingPlayerId ? { ...player, ...playerForm } : player,
+        ),
+      }));
+      resetPlayerForm();
+      return;
+    }
+
     setData((current) => ({
       ...current,
       players: [{ id: createId('player'), ...playerForm }, ...current.players],
     }));
-    setPlayerForm((current) => ({
-      ...current,
-      name: '',
-      number: '',
-      position: '',
-      focus: '',
-    }));
+    resetPlayerForm();
   };
 
   const handleAddPlan = (event) => {
     event.preventDefault();
+    if (editingPlanId) {
+      const updatedPlan = { id: editingPlanId, ...planForm };
+      setData((current) => ({
+        ...current,
+        preGamePlans: current.preGamePlans.map((plan) =>
+          plan.id === editingPlanId ? updatedPlan : plan,
+        ),
+      }));
+      if (selectedPlanId === editingPlanId) {
+        const teamRoster = data.players.filter((player) => player.teamId === updatedPlan.teamId);
+        setLiveGame(createInitialGameState(updatedPlan, teamRoster));
+      }
+      resetPlanForm();
+      return;
+    }
+
     const nextPlan = { id: createId('plan'), ...planForm };
     setData((current) => ({
       ...current,
@@ -280,35 +384,42 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
     setSelectedPlanId(nextPlan.id);
     const teamRoster = data.players.filter((player) => player.teamId === nextPlan.teamId);
     setLiveGame(createInitialGameState(nextPlan, teamRoster));
-    setPlanForm((current) => ({
-      ...current,
-      opponent: '',
-      gameDate: '',
-      objectives: '',
-      rotation: '',
-      pointsOfEmphasis: '',
-    }));
+    resetPlanForm();
   };
 
   const handleAddTrainingPlan = (event) => {
     event.preventDefault();
+    if (editingTrainingId) {
+      setData((current) => ({
+        ...current,
+        trainingPlans: current.trainingPlans.map((plan) =>
+          plan.id === editingTrainingId ? { ...plan, ...trainingForm } : plan,
+        ),
+      }));
+      resetTrainingForm();
+      return;
+    }
+
     setData((current) => ({
       ...current,
       trainingPlans: [{ id: createId('training'), ...trainingForm }, ...current.trainingPlans],
     }));
-    setTrainingForm((current) => ({
-      ...current,
-      practiceDate: '',
-      theme: '',
-      objectives: '',
-      drills: '',
-      intensity: 'Medium',
-      coachingNotes: '',
-    }));
+    resetTrainingForm();
   };
 
   const handleAddReflection = (event) => {
     event.preventDefault();
+    if (editingReflectionId) {
+      setData((current) => ({
+        ...current,
+        postGameReflections: current.postGameReflections.map((entry) =>
+          entry.id === editingReflectionId ? { ...entry, ...reflectionForm } : entry,
+        ),
+      }));
+      resetReflectionForm();
+      return;
+    }
+
     setData((current) => ({
       ...current,
       postGameReflections: [
@@ -316,18 +427,22 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
         ...current.postGameReflections,
       ],
     }));
-    setReflectionForm((current) => ({
-      ...current,
-      opponent: '',
-      result: '',
-      whatWorked: '',
-      needsWork: '',
-      nextPractice: '',
-    }));
+    resetReflectionForm();
   };
 
   const handleAddJournalEntry = (event) => {
     event.preventDefault();
+    if (editingJournalId) {
+      setData((current) => ({
+        ...current,
+        journalEntries: current.journalEntries.map((entry) =>
+          entry.id === editingJournalId ? { ...entry, ...journalForm } : entry,
+        ),
+      }));
+      resetJournalForm();
+      return;
+    }
+
     setData((current) => ({
       ...current,
       journalEntries: [
@@ -335,11 +450,7 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
         ...current.journalEntries,
       ],
     }));
-    setJournalForm({
-      title: '',
-      category: 'General',
-      content: '',
-    });
+    resetJournalForm();
   };
 
   const updateLiveStat = (playerId, statName, delta) => {
@@ -365,6 +476,188 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
         },
       };
     });
+  };
+
+  const startEditingTeam = (team) => {
+    setActiveSection('teams');
+    setEditingTeamId(team.id);
+    setTeamForm({
+      name: team.name,
+      ageGroup: team.ageGroup,
+      seasonGoal: team.seasonGoal,
+    });
+  };
+
+  const deleteTeam = (teamId) => {
+    const remainingTeams = data.teams.filter((team) => team.id !== teamId);
+    const fallbackTeamId = remainingTeams[0]?.id ?? '';
+    const remainingPlayers = data.players.filter((player) => player.teamId !== teamId);
+    const remainingPlans = data.preGamePlans.filter((plan) => plan.teamId !== teamId);
+
+    setData((current) => ({
+      ...current,
+      teams: current.teams.filter((team) => team.id !== teamId),
+      players: current.players.filter((player) => player.teamId !== teamId),
+      trainingPlans: current.trainingPlans.filter((plan) => plan.teamId !== teamId),
+      preGamePlans: current.preGamePlans.filter((plan) => plan.teamId !== teamId),
+      postGameReflections: current.postGameReflections.filter(
+        (reflection) => reflection.teamId !== teamId,
+      ),
+    }));
+
+    if (editingTeamId === teamId) {
+      resetTeamForm(fallbackTeamId);
+    }
+    if (playerForm.teamId === teamId) {
+      setPlayerForm((current) => ({ ...current, teamId: fallbackTeamId }));
+    }
+    if (trainingForm.teamId === teamId) {
+      setTrainingForm((current) => ({ ...current, teamId: fallbackTeamId }));
+    }
+    if (planForm.teamId === teamId) {
+      setPlanForm((current) => ({ ...current, teamId: fallbackTeamId }));
+    }
+    if (reflectionForm.teamId === teamId) {
+      setReflectionForm((current) => ({ ...current, teamId: fallbackTeamId }));
+    }
+    if (selectedPlanId && !remainingPlans.some((plan) => plan.id === selectedPlanId)) {
+      const nextPlan = remainingPlans[0] ?? null;
+      setSelectedPlanId(nextPlan?.id ?? '');
+      setLiveGame(createInitialGameState(nextPlan, remainingPlayers.filter((player) => player.teamId === nextPlan?.teamId)));
+    }
+  };
+
+  const startEditingPlayer = (player) => {
+    setActiveSection('teams');
+    setEditingPlayerId(player.id);
+    setPlayerForm({
+      teamId: player.teamId,
+      name: player.name,
+      number: player.number,
+      position: player.position,
+      focus: player.focus,
+    });
+  };
+
+  const deletePlayer = (playerId) => {
+    setData((current) => ({
+      ...current,
+      players: current.players.filter((player) => player.id !== playerId),
+    }));
+    setLiveGame((current) => {
+      const nextStats = { ...current.playerStats };
+      delete nextStats[playerId];
+      return {
+        ...current,
+        playerStats: nextStats,
+      };
+    });
+    if (editingPlayerId === playerId) {
+      resetPlayerForm();
+    }
+  };
+
+  const startEditingTraining = (plan) => {
+    setActiveSection('training');
+    setEditingTrainingId(plan.id);
+    setTrainingForm({
+      teamId: plan.teamId,
+      practiceDate: plan.practiceDate,
+      theme: plan.theme,
+      objectives: plan.objectives,
+      drills: plan.drills,
+      intensity: plan.intensity,
+      coachingNotes: plan.coachingNotes,
+    });
+  };
+
+  const deleteTraining = (trainingId) => {
+    setData((current) => ({
+      ...current,
+      trainingPlans: current.trainingPlans.filter((plan) => plan.id !== trainingId),
+    }));
+    if (editingTrainingId === trainingId) {
+      resetTrainingForm();
+    }
+  };
+
+  const startEditingPlan = (plan) => {
+    setActiveSection('pregame');
+    setEditingPlanId(plan.id);
+    setPlanForm({
+      teamId: plan.teamId,
+      opponent: plan.opponent,
+      gameDate: plan.gameDate,
+      objectives: plan.objectives,
+      rotation: plan.rotation,
+      pointsOfEmphasis: plan.pointsOfEmphasis,
+    });
+  };
+
+  const deletePlan = (planId) => {
+    const remainingPlans = data.preGamePlans.filter((plan) => plan.id !== planId);
+    const nextPlan = remainingPlans[0] ?? null;
+    setData((current) => ({
+      ...current,
+      preGamePlans: current.preGamePlans.filter((plan) => plan.id !== planId),
+    }));
+    if (editingPlanId === planId) {
+      resetPlanForm();
+    }
+    if (selectedPlanId === planId) {
+      setSelectedPlanId(nextPlan?.id ?? '');
+      setLiveGame(
+        createInitialGameState(
+          nextPlan,
+          data.players.filter((player) => player.teamId === nextPlan?.teamId),
+        ),
+      );
+    }
+  };
+
+  const startEditingReflection = (entry) => {
+    setActiveSection('postgame');
+    setEditingReflectionId(entry.id);
+    setReflectionForm({
+      teamId: entry.teamId,
+      opponent: entry.opponent,
+      result: entry.result,
+      whatWorked: entry.whatWorked,
+      needsWork: entry.needsWork,
+      nextPractice: entry.nextPractice,
+    });
+  };
+
+  const deleteReflection = (reflectionId) => {
+    setData((current) => ({
+      ...current,
+      postGameReflections: current.postGameReflections.filter(
+        (entry) => entry.id !== reflectionId,
+      ),
+    }));
+    if (editingReflectionId === reflectionId) {
+      resetReflectionForm();
+    }
+  };
+
+  const startEditingJournal = (entry) => {
+    setActiveSection('journal');
+    setEditingJournalId(entry.id);
+    setJournalForm({
+      title: entry.title,
+      category: entry.category,
+      content: entry.content,
+    });
+  };
+
+  const deleteJournal = (journalId) => {
+    setData((current) => ({
+      ...current,
+      journalEntries: current.journalEntries.filter((entry) => entry.id !== journalId),
+    }));
+    if (editingJournalId === journalId) {
+      resetJournalForm();
+    }
   };
 
   const quickSections = [
@@ -547,7 +840,7 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
           <div className="section-heading">
             <div>
               <p className="section-kicker">Roster setup</p>
-              <h2>Add a team</h2>
+              <h2>{editingTeamId ? 'Update team' : 'Add a team'}</h2>
             </div>
           </div>
           <form className="stack" onSubmit={handleAddTeam}>
@@ -583,9 +876,20 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
                 value={teamForm.seasonGoal}
               />
             </div>
-            <button className="primary-button" type="submit">
-              Save team
-            </button>
+            <div className="stack-actions">
+              <button className="primary-button" type="submit">
+                {editingTeamId ? 'Update team' : 'Save team'}
+              </button>
+              {editingTeamId ? (
+                <button
+                  className="secondary-button"
+                  onClick={() => resetTeamForm()}
+                  type="button"
+                >
+                  Cancel
+                </button>
+              ) : null}
+            </div>
           </form>
         </section>
 
@@ -593,7 +897,7 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
           <div className="section-heading">
             <div>
               <p className="section-kicker">Roster setup</p>
-              <h2>Add a player</h2>
+              <h2>{editingPlayerId ? 'Update player' : 'Add a player'}</h2>
             </div>
           </div>
           <form className="stack" onSubmit={handleAddPlayer}>
@@ -649,9 +953,20 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
                 value={playerForm.focus}
               />
             </div>
-            <button className="primary-button" type="submit">
-              Add player
-            </button>
+            <div className="stack-actions">
+              <button className="primary-button" type="submit">
+                {editingPlayerId ? 'Update player' : 'Add player'}
+              </button>
+              {editingPlayerId ? (
+                <button
+                  className="secondary-button"
+                  onClick={() => resetPlayerForm()}
+                  type="button"
+                >
+                  Cancel
+                </button>
+              ) : null}
+            </div>
           </form>
         </section>
       </div>
@@ -672,9 +987,25 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
                     <h4>{team.name}</h4>
                     <p className="entry-meta">{team.ageGroup}</p>
                   </div>
-                  <span className="badge">
-                    {data.players.filter((player) => player.teamId === team.id).length} players
-                  </span>
+                  <div className="stack-actions">
+                    <span className="badge">
+                      {data.players.filter((player) => player.teamId === team.id).length} players
+                    </span>
+                    <button
+                      className="ghost-button"
+                      onClick={() => startEditingTeam(team)}
+                      type="button"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="ghost-button"
+                      onClick={() => deleteTeam(team.id)}
+                      type="button"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
                 <p className="item-notes">{team.seasonGoal}</p>
               </article>
@@ -701,6 +1032,22 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
                       {player.position} • {teamsById[player.teamId]?.name}
                     </p>
                   </div>
+                  <div className="stack-actions">
+                    <button
+                      className="ghost-button"
+                      onClick={() => startEditingPlayer(player)}
+                      type="button"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="ghost-button"
+                      onClick={() => deletePlayer(player.id)}
+                      type="button"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
                 <p className="item-notes">{player.focus}</p>
               </article>
@@ -714,12 +1061,12 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
   const renderPreGameSection = () => (
     <section className="content-grid">
       <section className="section-card">
-        <div className="section-heading">
-          <div>
-            <p className="section-kicker">Pre-game planner</p>
-            <h2>Create a game plan</h2>
+          <div className="section-heading">
+            <div>
+              <p className="section-kicker">Pre-game planner</p>
+              <h2>{editingPlanId ? 'Update a game plan' : 'Create a game plan'}</h2>
+            </div>
           </div>
-        </div>
         <form className="stack" onSubmit={handleAddPlan}>
           <div className="field-grid">
             <select
@@ -785,9 +1132,20 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
               value={planForm.pointsOfEmphasis}
             />
           </div>
-          <button className="primary-button" type="submit">
-            Save pre-game plan
-          </button>
+          <div className="stack-actions">
+            <button className="primary-button" type="submit">
+              {editingPlanId ? 'Update pre-game plan' : 'Save pre-game plan'}
+            </button>
+            {editingPlanId ? (
+              <button
+                className="secondary-button"
+                onClick={() => resetPlanForm()}
+                type="button"
+              >
+                Cancel
+              </button>
+            ) : null}
+          </div>
         </form>
       </section>
 
@@ -822,6 +1180,20 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
                 >
                   Open live tracker
                 </button>
+                <button
+                  className="ghost-button"
+                  onClick={() => startEditingPlan(plan)}
+                  type="button"
+                >
+                  Edit
+                </button>
+                <button
+                  className="ghost-button"
+                  onClick={() => deletePlan(plan.id)}
+                  type="button"
+                >
+                  Delete
+                </button>
               </div>
               <div className="badge-row">
                 <span className="badge">Objectives ready</span>
@@ -838,12 +1210,12 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
   const renderTrainingSection = () => (
     <section className="content-grid">
       <section className="section-card">
-        <div className="section-heading">
-          <div>
-            <p className="section-kicker">Training planner</p>
-            <h2>Design a practice session</h2>
+          <div className="section-heading">
+            <div>
+              <p className="section-kicker">Training planner</p>
+              <h2>{editingTrainingId ? 'Update a practice session' : 'Design a practice session'}</h2>
+            </div>
           </div>
-        </div>
         <form className="stack" onSubmit={handleAddTrainingPlan}>
           <div className="field-grid">
             <select
@@ -929,9 +1301,20 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
               value={trainingForm.coachingNotes}
             />
           </div>
-          <button className="primary-button" type="submit">
-            Save training plan
-          </button>
+          <div className="stack-actions">
+            <button className="primary-button" type="submit">
+              {editingTrainingId ? 'Update training plan' : 'Save training plan'}
+            </button>
+            {editingTrainingId ? (
+              <button
+                className="secondary-button"
+                onClick={() => resetTrainingForm()}
+                type="button"
+              >
+                Cancel
+              </button>
+            ) : null}
+          </div>
         </form>
       </section>
 
@@ -952,7 +1335,23 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
                     {teamsById[plan.teamId]?.name} • {plan.practiceDate}
                   </p>
                 </div>
-                <span className="badge">{plan.intensity}</span>
+                <div className="stack-actions">
+                  <span className="badge">{plan.intensity}</span>
+                  <button
+                    className="ghost-button"
+                    onClick={() => startEditingTraining(plan)}
+                    type="button"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="ghost-button"
+                    onClick={() => deleteTraining(plan.id)}
+                    type="button"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
               <div className="stack">
                 <div>
@@ -1179,12 +1578,12 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
   const renderPostGameSection = () => (
     <section className="content-grid">
       <section className="section-card">
-        <div className="section-heading">
-          <div>
-            <p className="section-kicker">Post-game review</p>
-            <h2>Log reflections</h2>
+          <div className="section-heading">
+            <div>
+              <p className="section-kicker">Post-game review</p>
+              <h2>{editingReflectionId ? 'Update reflection' : 'Log reflections'}</h2>
+            </div>
           </div>
-        </div>
         <form className="stack" onSubmit={handleAddReflection}>
           <div className="field-grid">
             <select
@@ -1256,9 +1655,20 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
               value={reflectionForm.nextPractice}
             />
           </div>
-          <button className="primary-button" type="submit">
-            Save reflection
-          </button>
+          <div className="stack-actions">
+            <button className="primary-button" type="submit">
+              {editingReflectionId ? 'Update reflection' : 'Save reflection'}
+            </button>
+            {editingReflectionId ? (
+              <button
+                className="secondary-button"
+                onClick={() => resetReflectionForm()}
+                type="button"
+              >
+                Cancel
+              </button>
+            ) : null}
+          </div>
         </form>
       </section>
 
@@ -1280,6 +1690,22 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
                   <p className="entry-meta">
                     {entry.result} • {formatStamp(entry.createdAt)}
                   </p>
+                </div>
+                <div className="stack-actions">
+                  <button
+                    className="ghost-button"
+                    onClick={() => startEditingReflection(entry)}
+                    type="button"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="ghost-button"
+                    onClick={() => deleteReflection(entry.id)}
+                    type="button"
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
               <div className="stack">
@@ -1306,12 +1732,12 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
   const renderJournalSection = () => (
     <section className="content-grid">
       <section className="section-card">
-        <div className="section-heading">
-          <div>
-            <p className="section-kicker">Coaching journal</p>
-            <h2>Capture thoughts fast</h2>
+          <div className="section-heading">
+            <div>
+              <p className="section-kicker">Coaching journal</p>
+              <h2>{editingJournalId ? 'Update journal entry' : 'Capture thoughts fast'}</h2>
+            </div>
           </div>
-        </div>
         <form className="stack" onSubmit={handleAddJournalEntry}>
           <div className="field-grid">
             <input
@@ -1346,9 +1772,20 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
               value={journalForm.content}
             />
           </div>
-          <button className="primary-button" type="submit">
-            Save journal entry
-          </button>
+          <div className="stack-actions">
+            <button className="primary-button" type="submit">
+              {editingJournalId ? 'Update journal entry' : 'Save journal entry'}
+            </button>
+            {editingJournalId ? (
+              <button
+                className="secondary-button"
+                onClick={() => resetJournalForm()}
+                type="button"
+              >
+                Cancel
+              </button>
+            ) : null}
+          </div>
         </form>
       </section>
 
@@ -1362,7 +1799,25 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
         <div className="journal-list">
           {data.journalEntries.map((entry) => (
             <article className="journal-entry" key={entry.id}>
-              <span className="label">{entry.category}</span>
+              <div className="item-header">
+                <span className="label">{entry.category}</span>
+                <div className="stack-actions">
+                  <button
+                    className="ghost-button"
+                    onClick={() => startEditingJournal(entry)}
+                    type="button"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="ghost-button"
+                    onClick={() => deleteJournal(entry.id)}
+                    type="button"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
               <h4>{entry.title}</h4>
               <p className="entry-meta">{formatStamp(entry.createdAt)}</p>
               <p>{entry.content}</p>
