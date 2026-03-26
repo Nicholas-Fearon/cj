@@ -95,6 +95,54 @@ export const seedJournal = [
   },
 ];
 
+const defaultBoardPieces = [
+  { id: 'offense-1', label: '1', type: 'offense', x: 24, y: 84 },
+  { id: 'offense-2', label: '2', type: 'offense', x: 38, y: 76 },
+  { id: 'offense-3', label: '3', type: 'offense', x: 52, y: 68 },
+  { id: 'offense-4', label: '4', type: 'offense', x: 66, y: 76 },
+  { id: 'offense-5', label: '5', type: 'offense', x: 80, y: 84 },
+  { id: 'defense-1', label: 'X1', type: 'defense', x: 24, y: 16 },
+  { id: 'defense-2', label: 'X2', type: 'defense', x: 38, y: 24 },
+  { id: 'defense-3', label: 'X3', type: 'defense', x: 52, y: 32 },
+  { id: 'defense-4', label: 'X4', type: 'defense', x: 66, y: 24 },
+  { id: 'defense-5', label: 'X5', type: 'defense', x: 80, y: 16 },
+  { id: 'ball-1', label: 'Ball', type: 'ball', x: 52, y: 72 },
+  { id: 'cone-1', label: 'Cone', type: 'cone', x: 26, y: 50 },
+  { id: 'cone-2', label: 'Cone', type: 'cone', x: 78, y: 50 },
+  { id: 'chair-1', label: 'Chair', type: 'chair', x: 12, y: 50 },
+  { id: 'coach-1', label: 'Coach', type: 'coach', x: 90, y: 50 },
+];
+
+export const createBoardPieces = () =>
+  defaultBoardPieces.map((piece) => ({ ...piece }));
+
+export const createBoardTemplate = (name = 'New play board') => ({
+  id: createId('board'),
+  name,
+  notes: '',
+  pieces: createBoardPieces(),
+  frames: [],
+});
+
+export const seedCoachBoards = [
+  {
+    id: 'board-horns',
+    name: 'Horns entry',
+    notes: 'Use this to walk through the initial alignment and the first action.',
+    pieces: createBoardPieces(),
+    frames: [
+      createBoardPieces(),
+      createBoardPieces().map((piece) => {
+        if (piece.id === 'offense-1') return { ...piece, x: 52, y: 58 };
+        if (piece.id === 'offense-2') return { ...piece, x: 26, y: 60 };
+        if (piece.id === 'offense-3') return { ...piece, x: 78, y: 40 };
+        if (piece.id === 'ball-1') return { ...piece, x: 52, y: 58 };
+        return piece;
+      }),
+    ],
+  },
+];
+
 export const createInitialGameState = (plan, players) => ({
   id: createId('live'),
   teamId: plan?.teamId ?? '',
@@ -120,6 +168,7 @@ export const createInitialDashboardData = () => ({
   teams: seedTeams,
   players: seedPlayers,
   trainingPlans: seedTrainingPlans,
+  coachBoards: seedCoachBoards,
   preGamePlans: seedGamePlans,
   postGameReflections: seedReflections,
   journalEntries: seedJournal,
@@ -140,6 +189,7 @@ export const normalizeDashboardPayload = (payload) => {
       teams: data.teams ?? fallback.data.teams,
       players: data.players ?? fallback.data.players,
       trainingPlans: data.trainingPlans ?? fallback.data.trainingPlans,
+      coachBoards: data.coachBoards ?? fallback.data.coachBoards,
       preGamePlans: data.preGamePlans ?? fallback.data.preGamePlans,
       postGameReflections:
         data.postGameReflections ?? fallback.data.postGameReflections,

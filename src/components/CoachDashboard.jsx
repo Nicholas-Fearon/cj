@@ -8,6 +8,7 @@ import {
   createInitialGameState,
   normalizeDashboardPayload,
 } from '@/lib/dashboardData';
+import CoachingBoard from '@/components/CoachingBoard';
 import {
   isSupabaseConfigured,
   isSupabaseServerConfigured,
@@ -660,10 +661,30 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
     }
   };
 
+  const saveBoard = (board) => {
+    setData((current) => {
+      const exists = current.coachBoards.some((entry) => entry.id === board.id);
+      return {
+        ...current,
+        coachBoards: exists
+          ? current.coachBoards.map((entry) => (entry.id === board.id ? board : entry))
+          : [board, ...current.coachBoards],
+      };
+    });
+  };
+
+  const deleteBoard = (boardId) => {
+    setData((current) => ({
+      ...current,
+      coachBoards: current.coachBoards.filter((board) => board.id !== boardId),
+    }));
+  };
+
   const quickSections = [
     { id: 'overview', label: 'Overview' },
     { id: 'teams', label: 'Teams + Players' },
     { id: 'training', label: 'Training' },
+    { id: 'board', label: 'Board' },
     { id: 'pregame', label: 'Pre-game' },
     { id: 'ingame', label: 'In-game' },
     { id: 'postgame', label: 'Post-game' },
@@ -715,6 +736,11 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
             <span className="label">Game plans</span>
             <strong>{data.preGamePlans.length}</strong>
             <p className="small-copy">Prepared scouting and pre-tip notes</p>
+          </article>
+          <article className="summary-card">
+            <span className="label">Boards</span>
+            <strong>{data.coachBoards.length}</strong>
+            <p className="small-copy">Animated play diagrams in your library</p>
           </article>
         </div>
       </div>
@@ -1205,6 +1231,14 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
         </div>
       </section>
     </section>
+  );
+
+  const renderBoardSection = () => (
+    <CoachingBoard
+      boards={data.coachBoards}
+      onDeleteBoard={deleteBoard}
+      onSaveBoard={saveBoard}
+    />
   );
 
   const renderTrainingSection = () => (
@@ -1854,6 +1888,7 @@ export default function CoachDashboard({ initialSection = 'overview' }) {
       {activeSection === 'overview' && renderOverview()}
       {activeSection === 'teams' && renderTeamsSection()}
       {activeSection === 'training' && renderTrainingSection()}
+      {activeSection === 'board' && renderBoardSection()}
       {activeSection === 'pregame' && renderPreGameSection()}
       {activeSection === 'ingame' && renderInGameSection()}
       {activeSection === 'postgame' && renderPostGameSection()}
