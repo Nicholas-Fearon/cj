@@ -26,60 +26,131 @@ const actionPalette = [
 const courtPresets = {
   nba: {
     label: 'NBA',
+    fullLengthFt: 94,
+    halfLengthFt: 47,
+    widthFt: 50,
     laneWidthFt: 16,
+    laneDepthFt: 19,
     threeRadiusFt: 23.75,
     cornerOffsetFt: 3,
     restrictedRadiusFt: 4,
   },
   ncaa: {
     label: 'NCAA',
+    fullLengthFt: 94,
+    halfLengthFt: 47,
+    widthFt: 50,
     laneWidthFt: 12,
+    laneDepthFt: 19,
     threeRadiusFt: 22.1458,
     cornerOffsetFt: 3,
     restrictedRadiusFt: 4,
   },
   fiba: {
     label: 'FIBA',
+    fullLengthFt: 91.86,
+    halfLengthFt: 45.93,
+    widthFt: 49.21,
     laneWidthFt: 16.08,
+    laneDepthFt: 19.03,
     threeRadiusFt: 22.1458,
     cornerOffsetFt: 2.95,
     restrictedRadiusFt: 4.27,
   },
   high_school: {
     label: 'High School',
+    fullLengthFt: 94,
+    halfLengthFt: 47,
+    widthFt: 50,
     laneWidthFt: 12,
+    laneDepthFt: 19,
     threeRadiusFt: 19.75,
     cornerOffsetFt: 5.25,
     restrictedRadiusFt: null,
   },
 };
 
-const toCourtX = (feet) => 2 + feet * (96 / 50);
-const toCourtY = (feet) => 2 + feet * (96 / 94);
+const toCourtX = (feet, widthFt) => 2 + feet * (96 / widthFt);
+const toCourtY = (feet, lengthFt) => 2 + feet * (96 / lengthFt);
 
-function CourtLines({ courtType }) {
-  const preset = courtPresets[courtType] ?? courtPresets.ncaa;
-  const hoopTopY = toCourtY(5.25);
-  const hoopBottomY = toCourtY(94 - 5.25);
-  const laneLeftX = 50 - (preset.laneWidthFt / 2) * (96 / 50);
-  const laneRightX = 50 + (preset.laneWidthFt / 2) * (96 / 50);
-  const freeThrowTopY = toCourtY(19);
-  const freeThrowBottomY = toCourtY(94 - 19);
-  const cornerLeftX = toCourtX(preset.cornerOffsetFt);
-  const cornerRightX = toCourtX(50 - preset.cornerOffsetFt);
-  const threeRadiusX = preset.threeRadiusFt * (96 / 50);
-  const threeRadiusY = preset.threeRadiusFt * (96 / 94);
+function drawEnd({ preset, baseline, towardCenter, lengthFt }) {
+  const hoopY = toCourtY(baseline + 5.25 * towardCenter, lengthFt);
+  const backboardY = toCourtY(baseline + 4 * towardCenter, lengthFt);
+  const laneFrontY = toCourtY(
+    baseline + preset.laneDepthFt * towardCenter,
+    lengthFt,
+  );
+  const laneLeftX = 50 - (preset.laneWidthFt / 2) * (96 / preset.widthFt);
+  const laneRightX = 50 + (preset.laneWidthFt / 2) * (96 / preset.widthFt);
+  const freeThrowCircleR = 6 * (96 / preset.widthFt);
+  const threeRadiusX = preset.threeRadiusFt * (96 / preset.widthFt);
+  const threeRadiusY = preset.threeRadiusFt * (96 / lengthFt);
+  const cornerLeftX = toCourtX(preset.cornerOffsetFt, preset.widthFt);
+  const cornerRightX = toCourtX(preset.widthFt - preset.cornerOffsetFt, preset.widthFt);
   const dx = 50 - cornerLeftX;
-  const topArcJoinY =
-    hoopTopY + Math.sqrt(Math.max(0, threeRadiusY ** 2 - (dx * (96 / 50 / (96 / 94))) ** 2));
-  const bottomArcJoinY =
-    hoopBottomY - Math.sqrt(Math.max(0, threeRadiusY ** 2 - (dx * (96 / 50 / (96 / 94))) ** 2));
+  const verticalScaleRatio = (96 / preset.widthFt) / (96 / lengthFt);
+  const arcJoinOffset = Math.sqrt(
+    Math.max(0, threeRadiusY ** 2 - (dx * verticalScaleRatio) ** 2),
+  );
+  const arcJoinY = hoopY + arcJoinOffset * towardCenter;
   const restrictedRadiusX = preset.restrictedRadiusFt
-    ? preset.restrictedRadiusFt * (96 / 50)
+    ? preset.restrictedRadiusFt * (96 / preset.widthFt)
     : null;
   const restrictedRadiusY = preset.restrictedRadiusFt
-    ? preset.restrictedRadiusFt * (96 / 94)
+    ? preset.restrictedRadiusFt * (96 / lengthFt)
     : null;
+
+  return (
+    <>
+      <rect
+        height={Math.abs(laneFrontY - toCourtY(baseline, lengthFt))}
+        width={laneRightX - laneLeftX}
+        x={laneLeftX}
+        y={Math.min(laneFrontY, toCourtY(baseline, lengthFt))}
+      />
+      <line x1="40" x2="60" y1={backboardY} y2={backboardY} />
+      <circle cx="50" cy={hoopY} r="1.2" />
+      <circle cx="50" cy={laneFrontY} r={freeThrowCircleR} />
+      <path
+        d={
+          towardCenter > 0
+            ? `M ${50 - freeThrowCircleR} ${laneFrontY} A ${freeThrowCircleR} ${freeThrowCircleR} 0 0 0 ${
+                50 + freeThrowCircleR
+              } ${laneFrontY}`
+            : `M ${50 - freeThrowCircleR} ${laneFrontY} A ${freeThrowCircleR} ${freeThrowCircleR} 0 0 1 ${
+                50 + freeThrowCircleR
+              } ${laneFrontY}`
+        }
+      />
+      {restrictedRadiusX && restrictedRadiusY ? (
+        <path
+          d={
+            towardCenter > 0
+              ? `M ${50 - restrictedRadiusX} ${hoopY} A ${restrictedRadiusX} ${restrictedRadiusY} 0 0 0 ${
+                  50 + restrictedRadiusX
+                } ${hoopY}`
+              : `M ${50 - restrictedRadiusX} ${hoopY} A ${restrictedRadiusX} ${restrictedRadiusY} 0 0 1 ${
+                  50 + restrictedRadiusX
+                } ${hoopY}`
+          }
+        />
+      ) : null}
+      <line x1={cornerLeftX} x2={cornerLeftX} y1={toCourtY(baseline, lengthFt)} y2={arcJoinY} />
+      <line x1={cornerRightX} x2={cornerRightX} y1={toCourtY(baseline, lengthFt)} y2={arcJoinY} />
+      <path
+        d={
+          towardCenter > 0
+            ? `M ${cornerLeftX} ${arcJoinY} A ${threeRadiusX} ${threeRadiusY} 0 0 1 ${cornerRightX} ${arcJoinY}`
+            : `M ${cornerLeftX} ${arcJoinY} A ${threeRadiusX} ${threeRadiusY} 0 0 0 ${cornerRightX} ${arcJoinY}`
+        }
+      />
+    </>
+  );
+}
+
+function CourtLines({ courtType, courtView }) {
+  const preset = courtPresets[courtType] ?? courtPresets.ncaa;
+  const lengthFt = courtView === 'half' ? preset.halfLengthFt : preset.fullLengthFt;
 
   return (
     <svg
@@ -89,55 +160,26 @@ function CourtLines({ courtType }) {
       viewBox="0 0 100 100"
     >
       <rect height="96" rx="1.5" ry="1.5" width="96" x="2" y="2" />
-      <line x1="2" x2="98" y1="50" y2="50" />
-      <circle cx="50" cy="50" r="9" />
-      <circle cx="50" cy="50" r="1.2" />
-
-      <rect
-        height={freeThrowTopY - 2}
-        width={laneRightX - laneLeftX}
-        x={laneLeftX}
-        y="2"
-      />
-      <line x1="40" x2="60" y1={toCourtY(4)} y2={toCourtY(4)} />
-      <circle cx="50" cy={hoopTopY} r="1.2" />
-      <circle cx="50" cy={freeThrowTopY} r="6.4" />
-      <path d={`M43.6 ${freeThrowTopY} A6.4 6.4 0 0 0 56.4 ${freeThrowTopY}`} />
-      {restrictedRadiusX && restrictedRadiusY ? (
-        <path
-          d={`M ${50 - restrictedRadiusX} ${hoopTopY} A ${restrictedRadiusX} ${restrictedRadiusY} 0 0 0 ${
-            50 + restrictedRadiusX
-          } ${hoopTopY}`}
-        />
-      ) : null}
-      <line x1={cornerLeftX} x2={cornerLeftX} y1="2" y2={topArcJoinY} />
-      <line x1={cornerRightX} x2={cornerRightX} y1="2" y2={topArcJoinY} />
-      <path
-        d={`M ${cornerLeftX} ${topArcJoinY} A ${threeRadiusX} ${threeRadiusY} 0 0 1 ${cornerRightX} ${topArcJoinY}`}
-      />
-
-      <rect
-        height={98 - freeThrowBottomY}
-        width={laneRightX - laneLeftX}
-        x={laneLeftX}
-        y={freeThrowBottomY}
-      />
-      <line x1="40" x2="60" y1={toCourtY(90)} y2={toCourtY(90)} />
-      <circle cx="50" cy={hoopBottomY} r="1.2" />
-      <circle cx="50" cy={freeThrowBottomY} r="6.4" />
-      <path d={`M43.6 ${freeThrowBottomY} A6.4 6.4 0 0 1 56.4 ${freeThrowBottomY}`} />
-      {restrictedRadiusX && restrictedRadiusY ? (
-        <path
-          d={`M ${50 - restrictedRadiusX} ${hoopBottomY} A ${restrictedRadiusX} ${restrictedRadiusY} 0 0 1 ${
-            50 + restrictedRadiusX
-          } ${hoopBottomY}`}
-        />
-      ) : null}
-      <line x1={cornerLeftX} x2={cornerLeftX} y1={bottomArcJoinY} y2="98" />
-      <line x1={cornerRightX} x2={cornerRightX} y1={bottomArcJoinY} y2="98" />
-      <path
-        d={`M ${cornerLeftX} ${bottomArcJoinY} A ${threeRadiusX} ${threeRadiusY} 0 0 0 ${cornerRightX} ${bottomArcJoinY}`}
-      />
+      {courtView === 'full' ? (
+        <>
+          <line x1="2" x2="98" y1="50" y2="50" />
+          <circle cx="50" cy="50" r={toCourtX(6, preset.widthFt) - 2} />
+          <circle cx="50" cy="50" r="1.2" />
+          {drawEnd({ baseline: 0, lengthFt, preset, towardCenter: 1 })}
+          {drawEnd({ baseline: lengthFt, lengthFt, preset, towardCenter: -1 })}
+        </>
+      ) : (
+        <>
+          {drawEnd({ baseline: 0, lengthFt, preset, towardCenter: 1 })}
+          <line x1="2" x2="98" y1="98" y2="98" />
+          <path
+            d={`M 2 ${toCourtY(lengthFt, lengthFt)} Q 50 ${toCourtY(
+              lengthFt - 2,
+              lengthFt,
+            )} 98 ${toCourtY(lengthFt, lengthFt)}`}
+          />
+        </>
+      )}
     </svg>
   );
 }
@@ -508,7 +550,11 @@ export default function CoachingBoard({ boards, onSaveBoard, onDeleteBoard }) {
           <div className="section-heading">
             <div>
               <p className="section-kicker">Coaching board</p>
-              <h2>Full-court play designer</h2>
+              <h2>
+                {activeBoard.courtView === 'half'
+                  ? 'Half-court play designer'
+                  : 'Full-court play designer'}
+              </h2>
             </div>
           </div>
 
@@ -536,6 +582,19 @@ export default function CoachingBoard({ boards, onSaveBoard, onDeleteBoard }) {
                   {preset.label}
                 </option>
               ))}
+            </select>
+            <select
+              className="select-field full-span"
+              onChange={(event) =>
+                setActiveBoard((current) => ({
+                  ...current,
+                  courtView: event.target.value,
+                }))
+              }
+              value={activeBoard.courtView ?? 'full'}
+            >
+              <option value="full">Full Court</option>
+              <option value="half">Half Court</option>
             </select>
             <textarea
               className="textarea-field full-span"
@@ -595,11 +654,16 @@ export default function CoachingBoard({ boards, onSaveBoard, onDeleteBoard }) {
         <section className="section-card">
           <div className="coach-board-shell coach-board-full">
             <div
-              className="coach-board full-court-board"
+              className={`coach-board ${
+                activeBoard.courtView === 'half' ? 'half-court-board' : 'full-court-board'
+              }`}
               onClick={handleBoardClick}
               ref={boardRef}
             >
-              <CourtLines courtType={activeBoard.courtType ?? 'ncaa'} />
+              <CourtLines
+                courtType={activeBoard.courtType ?? 'ncaa'}
+                courtView={activeBoard.courtView ?? 'full'}
+              />
 
               <svg className="board-actions-layer" viewBox="0 0 100 100" preserveAspectRatio="none">
                 <defs>

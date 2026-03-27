@@ -499,6 +499,18 @@ button {
     );
 }
 
+.half-court-board {
+  min-height: 760px;
+  background:
+    linear-gradient(180deg, rgba(173, 101, 47, 0.96), rgba(140, 71, 29, 0.94)),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 69px,
+      rgba(255, 255, 255, 0.075) 70px
+    );
+}
+
 .coach-board::before {
   content: "";
   inset: 0;
@@ -729,5 +741,9 @@ button {
 
   .full-court-board {
     min-height: 720px;
+  }
+
+  .half-court-board {
+    min-height: 620px;
   }
 }

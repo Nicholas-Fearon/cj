@@ -120,6 +120,7 @@ export const createBoardTemplate = (name = 'New play board') => ({
   id: createId('board'),
   name,
   courtType: 'ncaa',
+  courtView: 'full',
   notes: '',
   pieces: createBoardPieces(),
   actions: [],
@@ -131,6 +132,7 @@ export const seedCoachBoards = [
     id: 'board-horns',
     name: 'Horns entry',
     courtType: 'ncaa',
+    courtView: 'half',
     notes: 'Use this to walk through the initial alignment and the first action.',
     pieces: createBoardPieces(),
     actions: [
@@ -207,6 +209,7 @@ export const normalizeDashboardPayload = (payload) => {
   const coachBoards = (data.coachBoards ?? fallback.data.coachBoards).map((board) => ({
     ...board,
     courtType: board.courtType ?? 'ncaa',
+    courtView: board.courtView ?? 'full',
     actions: board.actions ?? [],
     frames: board.frames ?? [],
     pieces: board.pieces ?? [],
