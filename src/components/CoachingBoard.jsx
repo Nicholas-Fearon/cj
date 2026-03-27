@@ -23,6 +23,125 @@ const actionPalette = [
   { type: 'shot', name: 'Shot' },
 ];
 
+const courtPresets = {
+  nba: {
+    label: 'NBA',
+    laneWidthFt: 16,
+    threeRadiusFt: 23.75,
+    cornerOffsetFt: 3,
+    restrictedRadiusFt: 4,
+  },
+  ncaa: {
+    label: 'NCAA',
+    laneWidthFt: 12,
+    threeRadiusFt: 22.1458,
+    cornerOffsetFt: 3,
+    restrictedRadiusFt: 4,
+  },
+  fiba: {
+    label: 'FIBA',
+    laneWidthFt: 16.08,
+    threeRadiusFt: 22.1458,
+    cornerOffsetFt: 2.95,
+    restrictedRadiusFt: 4.27,
+  },
+  high_school: {
+    label: 'High School',
+    laneWidthFt: 12,
+    threeRadiusFt: 19.75,
+    cornerOffsetFt: 5.25,
+    restrictedRadiusFt: null,
+  },
+};
+
+const toCourtX = (feet) => 2 + feet * (96 / 50);
+const toCourtY = (feet) => 2 + feet * (96 / 94);
+
+function CourtLines({ courtType }) {
+  const preset = courtPresets[courtType] ?? courtPresets.ncaa;
+  const hoopTopY = toCourtY(5.25);
+  const hoopBottomY = toCourtY(94 - 5.25);
+  const laneLeftX = 50 - (preset.laneWidthFt / 2) * (96 / 50);
+  const laneRightX = 50 + (preset.laneWidthFt / 2) * (96 / 50);
+  const freeThrowTopY = toCourtY(19);
+  const freeThrowBottomY = toCourtY(94 - 19);
+  const cornerLeftX = toCourtX(preset.cornerOffsetFt);
+  const cornerRightX = toCourtX(50 - preset.cornerOffsetFt);
+  const threeRadiusX = preset.threeRadiusFt * (96 / 50);
+  const threeRadiusY = preset.threeRadiusFt * (96 / 94);
+  const dx = 50 - cornerLeftX;
+  const topArcJoinY =
+    hoopTopY + Math.sqrt(Math.max(0, threeRadiusY ** 2 - (dx * (96 / 50 / (96 / 94))) ** 2));
+  const bottomArcJoinY =
+    hoopBottomY - Math.sqrt(Math.max(0, threeRadiusY ** 2 - (dx * (96 / 50 / (96 / 94))) ** 2));
+  const restrictedRadiusX = preset.restrictedRadiusFt
+    ? preset.restrictedRadiusFt * (96 / 50)
+    : null;
+  const restrictedRadiusY = preset.restrictedRadiusFt
+    ? preset.restrictedRadiusFt * (96 / 94)
+    : null;
+
+  return (
+    <svg
+      aria-hidden="true"
+      className="court-lines-layer"
+      preserveAspectRatio="none"
+      viewBox="0 0 100 100"
+    >
+      <rect height="96" rx="1.5" ry="1.5" width="96" x="2" y="2" />
+      <line x1="2" x2="98" y1="50" y2="50" />
+      <circle cx="50" cy="50" r="9" />
+      <circle cx="50" cy="50" r="1.2" />
+
+      <rect
+        height={freeThrowTopY - 2}
+        width={laneRightX - laneLeftX}
+        x={laneLeftX}
+        y="2"
+      />
+      <line x1="40" x2="60" y1={toCourtY(4)} y2={toCourtY(4)} />
+      <circle cx="50" cy={hoopTopY} r="1.2" />
+      <circle cx="50" cy={freeThrowTopY} r="6.4" />
+      <path d={`M43.6 ${freeThrowTopY} A6.4 6.4 0 0 0 56.4 ${freeThrowTopY}`} />
+      {restrictedRadiusX && restrictedRadiusY ? (
+        <path
+          d={`M ${50 - restrictedRadiusX} ${hoopTopY} A ${restrictedRadiusX} ${restrictedRadiusY} 0 0 0 ${
+            50 + restrictedRadiusX
+          } ${hoopTopY}`}
+        />
+      ) : null}
+      <line x1={cornerLeftX} x2={cornerLeftX} y1="2" y2={topArcJoinY} />
+      <line x1={cornerRightX} x2={cornerRightX} y1="2" y2={topArcJoinY} />
+      <path
+        d={`M ${cornerLeftX} ${topArcJoinY} A ${threeRadiusX} ${threeRadiusY} 0 0 1 ${cornerRightX} ${topArcJoinY}`}
+      />
+
+      <rect
+        height={98 - freeThrowBottomY}
+        width={laneRightX - laneLeftX}
+        x={laneLeftX}
+        y={freeThrowBottomY}
+      />
+      <line x1="40" x2="60" y1={toCourtY(90)} y2={toCourtY(90)} />
+      <circle cx="50" cy={hoopBottomY} r="1.2" />
+      <circle cx="50" cy={freeThrowBottomY} r="6.4" />
+      <path d={`M43.6 ${freeThrowBottomY} A6.4 6.4 0 0 1 56.4 ${freeThrowBottomY}`} />
+      {restrictedRadiusX && restrictedRadiusY ? (
+        <path
+          d={`M ${50 - restrictedRadiusX} ${hoopBottomY} A ${restrictedRadiusX} ${restrictedRadiusY} 0 0 1 ${
+            50 + restrictedRadiusX
+          } ${hoopBottomY}`}
+        />
+      ) : null}
+      <line x1={cornerLeftX} x2={cornerLeftX} y1={bottomArcJoinY} y2="98" />
+      <line x1={cornerRightX} x2={cornerRightX} y1={bottomArcJoinY} y2="98" />
+      <path
+        d={`M ${cornerLeftX} ${bottomArcJoinY} A ${threeRadiusX} ${threeRadiusY} 0 0 0 ${cornerRightX} ${bottomArcJoinY}`}
+      />
+    </svg>
+  );
+}
+
 const pieceClassNames = {
   offense: 'board-piece board-piece-offense',
   defense: 'board-piece board-piece-defense',
@@ -147,15 +266,6 @@ export default function CoachingBoard({ boards, onSaveBoard, onDeleteBoard }) {
     activeBoard.pieces.find((piece) => piece.id === selectedPieceId) ?? null;
   const selectedAction =
     activeBoard.actions?.find((action) => action.id === selectedActionId) ?? null;
-
-  const updatePiece = (pieceId, updates) => {
-    setActiveBoard((current) => ({
-      ...current,
-      pieces: current.pieces.map((piece) =>
-        piece.id === pieceId ? { ...piece, ...updates } : piece,
-      ),
-    }));
-  };
 
   const updateAction = (actionId, updates) => {
     setActiveBoard((current) => ({
@@ -411,6 +521,22 @@ export default function CoachingBoard({ boards, onSaveBoard, onDeleteBoard }) {
               placeholder="Board name"
               value={activeBoard.name}
             />
+            <select
+              className="select-field full-span"
+              onChange={(event) =>
+                setActiveBoard((current) => ({
+                  ...current,
+                  courtType: event.target.value,
+                }))
+              }
+              value={activeBoard.courtType ?? 'ncaa'}
+            >
+              {Object.entries(courtPresets).map(([key, preset]) => (
+                <option key={key} value={key}>
+                  {preset.label}
+                </option>
+              ))}
+            </select>
             <textarea
               className="textarea-field full-span"
               onChange={(event) =>
@@ -473,30 +599,7 @@ export default function CoachingBoard({ boards, onSaveBoard, onDeleteBoard }) {
               onClick={handleBoardClick}
               ref={boardRef}
             >
-              <div className="midcourt-circle" />
-              <div className="midcourt-line" />
-
-              <div className="court-half top-half">
-                <div className="paint" />
-                <div className="rim top-rim" />
-                <div className="backboard top-backboard" />
-                <div className="free-throw-circle top-free-throw-circle" />
-                <div className="restricted-area top-restricted-area" />
-                <div className="three-point-arc top-three-point-arc" />
-                <div className="corner-line left top-corner-line" />
-                <div className="corner-line right top-corner-line" />
-              </div>
-
-              <div className="court-half bottom-half">
-                <div className="paint" />
-                <div className="rim bottom-rim" />
-                <div className="backboard bottom-backboard" />
-                <div className="free-throw-circle bottom-free-throw-circle" />
-                <div className="restricted-area bottom-restricted-area" />
-                <div className="three-point-arc bottom-three-point-arc" />
-                <div className="corner-line left bottom-corner-line" />
-                <div className="corner-line right bottom-corner-line" />
-              </div>
+              <CourtLines courtType={activeBoard.courtType ?? 'ncaa'} />
 
               <svg className="board-actions-layer" viewBox="0 0 100 100" preserveAspectRatio="none">
                 <defs>
@@ -636,67 +739,6 @@ export default function CoachingBoard({ boards, onSaveBoard, onDeleteBoard }) {
               Remove selected action
             </button>
           </div>
-        </section>
-
-        <section className="list-card">
-          <div className="section-heading">
-            <div>
-              <p className="section-kicker">Piece editor</p>
-              <h3>Tune the selected icon</h3>
-            </div>
-          </div>
-          {selectedPiece ? (
-            <div className="stack">
-              <input
-                className="input-field"
-                onChange={(event) =>
-                  updatePiece(selectedPiece.id, { label: event.target.value })
-                }
-                value={selectedPiece.label}
-              />
-              <select
-                className="select-field"
-                onChange={(event) =>
-                  updatePiece(selectedPiece.id, { type: event.target.value })
-                }
-                value={selectedPiece.type}
-              >
-                {palette.map((item) => (
-                  <option key={item.type} value={item.type}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-              <div className="field-grid">
-                <input
-                  className="input-field"
-                  max="97"
-                  min="3"
-                  onChange={(event) =>
-                    updatePiece(selectedPiece.id, {
-                      x: clamp(Number(event.target.value), 3, 97),
-                    })
-                  }
-                  type="number"
-                  value={Math.round(selectedPiece.x)}
-                />
-                <input
-                  className="input-field"
-                  max="98"
-                  min="2"
-                  onChange={(event) =>
-                    updatePiece(selectedPiece.id, {
-                      y: clamp(Number(event.target.value), 2, 98),
-                    })
-                  }
-                  type="number"
-                  value={Math.round(selectedPiece.y)}
-                />
-              </div>
-            </div>
-          ) : (
-            <p className="empty-state">Select an icon on the board to edit or remove it.</p>
-          )}
         </section>
 
         <section className="list-card">
