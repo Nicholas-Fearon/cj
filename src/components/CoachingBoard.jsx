@@ -7,13 +7,20 @@ const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const clonePieces = (pieces) => pieces.map((piece) => ({ ...piece }));
 
 const palette = [
-  { type: 'offense', label: 'O', name: 'Offense player', x: 28, y: 84 },
-  { type: 'defense', label: 'X', name: 'Defense player', x: 72, y: 16 },
+  { type: 'offense', label: '1', name: 'Offense player', x: 28, y: 84 },
+  { type: 'defense', label: 'X1', name: 'Defense player', x: 72, y: 16 },
   { type: 'ball', label: 'Ball', name: 'Ball', x: 52, y: 72 },
   { type: 'cone', label: 'Cone', name: 'Cone', x: 20, y: 50 },
   { type: 'chair', label: 'Chair', name: 'Chair', x: 12, y: 50 },
   { type: 'coach', label: 'Coach', name: 'Coach', x: 90, y: 50 },
-  { type: 'screen', label: 'Screen', name: 'Screen pad', x: 38, y: 50 },
+];
+
+const actionPalette = [
+  { type: 'screen', name: 'Screen' },
+  { type: 'dribble', name: 'Dribble' },
+  { type: 'handoff', name: 'DHO' },
+  { type: 'cut', name: 'Cut' },
+  { type: 'shot', name: 'Shot' },
 ];
 
 const pieceClassNames = {
@@ -23,14 +30,12 @@ const pieceClassNames = {
   cone: 'board-piece board-piece-cone',
   chair: 'board-piece board-piece-chair',
   coach: 'board-piece board-piece-coach',
-  screen: 'board-piece board-piece-screen',
 };
 
 const pieceGlyph = {
   cone: '▲',
   chair: '▭',
   coach: 'C',
-  screen: '||',
 };
 
 const countByType = (pieces, type) =>
@@ -50,8 +55,6 @@ const buildPieceFromPalette = (template, pieces) => {
     label = `Chair ${nextCount}`;
   } else if (template.type === 'coach') {
     label = `Coach ${nextCount}`;
-  } else if (template.type === 'screen') {
-    label = `Pad ${nextCount}`;
   }
 
   return {
@@ -71,6 +74,9 @@ export default function CoachingBoard({ boards, onSaveBoard, onDeleteBoard }) {
     (boards[0] ?? createBoardTemplate()).pieces[0]?.id ?? null,
   );
   const [draggingPieceId, setDraggingPieceId] = useState(null);
+  const [selectedActionId, setSelectedActionId] = useState(null);
+  const [pendingActionType, setPendingActionType] = useState(null);
+  const [pendingActionStart, setPendingActionStart] = useState(null);
   const [playbackIndex, setPlaybackIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
 
@@ -139,12 +145,23 @@ export default function CoachingBoard({ boards, onSaveBoard, onDeleteBoard }) {
 
   const selectedPiece =
     activeBoard.pieces.find((piece) => piece.id === selectedPieceId) ?? null;
+  const selectedAction =
+    activeBoard.actions?.find((action) => action.id === selectedActionId) ?? null;
 
   const updatePiece = (pieceId, updates) => {
     setActiveBoard((current) => ({
       ...current,
       pieces: current.pieces.map((piece) =>
         piece.id === pieceId ? { ...piece, ...updates } : piece,
+      ),
+    }));
+  };
+
+  const updateAction = (actionId, updates) => {
+    setActiveBoard((current) => ({
+      ...current,
+      actions: (current.actions ?? []).map((action) =>
+        action.id === actionId ? { ...action, ...updates } : action,
       ),
     }));
   };
@@ -156,6 +173,7 @@ export default function CoachingBoard({ boards, onSaveBoard, onDeleteBoard }) {
       pieces: [...current.pieces, nextPiece],
     }));
     setSelectedPieceId(nextPiece.id);
+    setSelectedActionId(null);
     setIsPlaying(false);
   };
 
@@ -176,6 +194,7 @@ export default function CoachingBoard({ boards, onSaveBoard, onDeleteBoard }) {
       pieces: [...current.pieces, copy],
     }));
     setSelectedPieceId(copy.id);
+    setSelectedActionId(null);
   };
 
   const removeSelectedPiece = () => {
@@ -189,6 +208,21 @@ export default function CoachingBoard({ boards, onSaveBoard, onDeleteBoard }) {
       pieces: nextPieces,
     }));
     setSelectedPieceId(nextPieces[0]?.id ?? null);
+  };
+
+  const removeSelectedAction = () => {
+    if (!selectedActionId) {
+      return;
+    }
+
+    const nextActions = (activeBoard.actions ?? []).filter(
+      (action) => action.id !== selectedActionId,
+    );
+    setActiveBoard((current) => ({
+      ...current,
+      actions: nextActions,
+    }));
+    setSelectedActionId(nextActions[0]?.id ?? null);
   };
 
   const handleRecordFrame = () => {
@@ -205,6 +239,7 @@ export default function CoachingBoard({ boards, onSaveBoard, onDeleteBoard }) {
   const handleSaveBoard = () => {
     onSaveBoard({
       ...activeBoard,
+      actions: activeBoard.actions ?? [],
       frames: activeBoard.frames.length ? activeBoard.frames : [clonePieces(activeBoard.pieces)],
     });
   };
@@ -213,12 +248,14 @@ export default function CoachingBoard({ boards, onSaveBoard, onDeleteBoard }) {
     const clonedBoard = {
       ...board,
       pieces: clonePieces(board.pieces),
+      actions: (board.actions ?? []).map((action) => ({ ...action })),
       frames: board.frames.map((frame) => clonePieces(frame)),
     };
     setIsPlaying(false);
     setPlaybackIndex(0);
     setActiveBoard(clonedBoard);
     setSelectedPieceId(clonedBoard.pieces[0]?.id ?? null);
+    setSelectedActionId(clonedBoard.actions[0]?.id ?? null);
   };
 
   const handleCreateBoard = () => {
@@ -227,6 +264,7 @@ export default function CoachingBoard({ boards, onSaveBoard, onDeleteBoard }) {
     setPlaybackIndex(0);
     setActiveBoard(nextBoard);
     setSelectedPieceId(nextBoard.pieces[0]?.id ?? null);
+    setSelectedActionId(null);
   };
 
   const handleClearFrames = () => {
@@ -241,11 +279,116 @@ export default function CoachingBoard({ boards, onSaveBoard, onDeleteBoard }) {
       const nextBoard = remainingBoards[0] ?? createBoardTemplate('New full-court board');
       setActiveBoard(nextBoard);
       setSelectedPieceId(nextBoard.pieces[0]?.id ?? null);
+      setSelectedActionId(nextBoard.actions[0]?.id ?? null);
       setPlaybackIndex(0);
       setIsPlaying(false);
     }
 
     onDeleteBoard(boardId);
+  };
+
+  const handleBoardClick = (event) => {
+    if (!pendingActionType || !boardRef.current) {
+      return;
+    }
+
+    const rect = boardRef.current.getBoundingClientRect();
+    const x = clamp(((event.clientX - rect.left) / rect.width) * 100, 3, 97);
+    const y = clamp(((event.clientY - rect.top) / rect.height) * 100, 2, 98);
+
+    if (!pendingActionStart) {
+      setPendingActionStart({ x, y });
+      setSelectedPieceId(null);
+      return;
+    }
+
+    const nextAction = {
+      id: createId('action'),
+      type: pendingActionType,
+      startX: pendingActionStart.x,
+      startY: pendingActionStart.y,
+      endX: x,
+      endY: y,
+    };
+
+    setActiveBoard((current) => ({
+      ...current,
+      actions: [...(current.actions ?? []), nextAction],
+    }));
+    setSelectedActionId(nextAction.id);
+    setPendingActionStart(null);
+    setPendingActionType(null);
+  };
+
+  const renderActionPath = (action) => {
+    const selectedClass =
+      action.id === selectedActionId ? 'board-action-selected' : '';
+    const baseProps = {
+      className: `board-action board-action-${action.type} ${selectedClass}`.trim(),
+      onClick: (event) => {
+        event.stopPropagation();
+        setSelectedActionId(action.id);
+        setSelectedPieceId(null);
+      },
+    };
+
+    if (action.type === 'screen') {
+      return (
+        <g key={action.id} {...baseProps}>
+          <line
+            x1={`${action.startX}%`}
+            y1={`${action.startY}%`}
+            x2={`${action.endX}%`}
+            y2={`${action.endY}%`}
+          />
+          <line
+            x1={`${action.startX - 1.6}%`}
+            y1={`${action.startY - 1.6}%`}
+            x2={`${action.startX + 1.6}%`}
+            y2={`${action.startY + 1.6}%`}
+          />
+          <line
+            x1={`${action.endX - 1.6}%`}
+            y1={`${action.endY - 1.6}%`}
+            x2={`${action.endX + 1.6}%`}
+            y2={`${action.endY + 1.6}%`}
+          />
+        </g>
+      );
+    }
+
+    if (action.type === 'dribble') {
+      const midX = (action.startX + action.endX) / 2;
+      const path = `M ${action.startX} ${action.startY} Q ${midX - 4} ${
+        (action.startY + action.endY) / 2
+      } ${midX} ${((action.startY + action.endY) / 2) - 5} T ${action.endX} ${action.endY}`;
+      return <path key={action.id} d={path} {...baseProps} />;
+    }
+
+    if (action.type === 'handoff') {
+      const controlX = (action.startX + action.endX) / 2 + 4;
+      const controlY = (action.startY + action.endY) / 2;
+      const path = `M ${action.startX} ${action.startY} Q ${controlX} ${controlY} ${action.endX} ${action.endY}`;
+      return <path key={action.id} d={path} {...baseProps} />;
+    }
+
+    if (action.type === 'shot') {
+      const controlX = (action.startX + action.endX) / 2;
+      const controlY = Math.min(action.startY, action.endY) - 10;
+      const path = `M ${action.startX} ${action.startY} Q ${controlX} ${controlY} ${action.endX} ${action.endY}`;
+      return <path key={action.id} d={path} {...baseProps} />;
+    }
+
+    return (
+      <line
+        key={action.id}
+        x1={`${action.startX}%`}
+        y1={`${action.startY}%`}
+        x2={`${action.endX}%`}
+        y2={`${action.endY}%`}
+        {...baseProps}
+      />
+    );
   };
 
   return (
@@ -310,15 +453,26 @@ export default function CoachingBoard({ boards, onSaveBoard, onDeleteBoard }) {
           <div className="badge-row">
             <span className="badge">Frames: {activeBoard.frames.length}</span>
             <span className="badge">Pieces: {activeBoard.pieces.length}</span>
+            <span className="badge">Actions: {(activeBoard.actions ?? []).length}</span>
             <span className="badge">
               Mode: {isPlaying ? `Playback ${playbackIndex + 1}` : 'Edit'}
             </span>
+            {pendingActionType ? (
+              <span className="warning-badge">
+                Adding {pendingActionType}
+                {pendingActionStart ? ' • pick end point' : ' • pick start point'}
+              </span>
+            ) : null}
           </div>
         </section>
 
         <section className="section-card">
           <div className="coach-board-shell coach-board-full">
-            <div className="coach-board full-court-board" ref={boardRef}>
+            <div
+              className="coach-board full-court-board"
+              onClick={handleBoardClick}
+              ref={boardRef}
+            >
               <div className="midcourt-circle" />
               <div className="midcourt-line" />
 
@@ -344,16 +498,36 @@ export default function CoachingBoard({ boards, onSaveBoard, onDeleteBoard }) {
                 <div className="corner-line right bottom-corner-line" />
               </div>
 
+              <svg className="board-actions-layer" viewBox="0 0 100 100" preserveAspectRatio="none">
+                <defs>
+                  <marker
+                    id="action-arrow"
+                    markerHeight="6"
+                    markerWidth="6"
+                    orient="auto-start-reverse"
+                    refX="5"
+                    refY="3"
+                  >
+                    <path d="M0,0 L6,3 L0,6 z" fill="#fff4df" />
+                  </marker>
+                </defs>
+                {(activeBoard.actions ?? []).map(renderActionPath)}
+              </svg>
+
               {visiblePieces.map((piece) => (
                 <button
                   className={`${pieceClassNames[piece.type]} ${
                     piece.id === selectedPieceId ? 'board-piece-selected' : ''
                   }`}
                   key={piece.id}
-                  onClick={() => setSelectedPieceId(piece.id)}
+                  onClick={() => {
+                    setSelectedPieceId(piece.id);
+                    setSelectedActionId(null);
+                  }}
                   onPointerDown={() => {
                     if (!isPlaying) {
                       setSelectedPieceId(piece.id);
+                      setSelectedActionId(null);
                       setDraggingPieceId(piece.id);
                     }
                   }}
@@ -420,6 +594,53 @@ export default function CoachingBoard({ boards, onSaveBoard, onDeleteBoard }) {
         <section className="list-card">
           <div className="section-heading">
             <div>
+              <p className="section-kicker">Action tools</p>
+              <h3>Draw play actions</h3>
+            </div>
+          </div>
+          <div className="board-tool-grid">
+            {actionPalette.map((item) => (
+              <button
+                className={`board-tool ${
+                  pendingActionType === item.type ? 'board-tool-active' : ''
+                }`}
+                key={item.type}
+                onClick={() => {
+                  setPendingActionType(item.type);
+                  setPendingActionStart(null);
+                  setSelectedActionId(null);
+                }}
+                type="button"
+              >
+                <span className={`action-chip action-chip-${item.type}`}>{item.name}</span>
+                <strong>{item.name}</strong>
+              </button>
+            ))}
+          </div>
+          <div className="stack-actions">
+            <button
+              className="secondary-button"
+              onClick={() => {
+                setPendingActionType(null);
+                setPendingActionStart(null);
+              }}
+              type="button"
+            >
+              Cancel action
+            </button>
+            <button
+              className="secondary-button"
+              onClick={removeSelectedAction}
+              type="button"
+            >
+              Remove selected action
+            </button>
+          </div>
+        </section>
+
+        <section className="list-card">
+          <div className="section-heading">
+            <div>
               <p className="section-kicker">Piece editor</p>
               <h3>Tune the selected icon</h3>
             </div>
@@ -475,6 +696,78 @@ export default function CoachingBoard({ boards, onSaveBoard, onDeleteBoard }) {
             </div>
           ) : (
             <p className="empty-state">Select an icon on the board to edit or remove it.</p>
+          )}
+        </section>
+
+        <section className="list-card">
+          <div className="section-heading">
+            <div>
+              <p className="section-kicker">Action editor</p>
+              <h3>Tune the selected action</h3>
+            </div>
+          </div>
+          {selectedAction ? (
+            <div className="stack">
+              <select
+                className="select-field"
+                onChange={(event) =>
+                  updateAction(selectedAction.id, { type: event.target.value })
+                }
+                value={selectedAction.type}
+              >
+                {actionPalette.map((item) => (
+                  <option key={item.type} value={item.type}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+              <div className="field-grid">
+                <input
+                  className="input-field"
+                  onChange={(event) =>
+                    updateAction(selectedAction.id, {
+                      startX: clamp(Number(event.target.value), 3, 97),
+                    })
+                  }
+                  type="number"
+                  value={Math.round(selectedAction.startX)}
+                />
+                <input
+                  className="input-field"
+                  onChange={(event) =>
+                    updateAction(selectedAction.id, {
+                      startY: clamp(Number(event.target.value), 2, 98),
+                    })
+                  }
+                  type="number"
+                  value={Math.round(selectedAction.startY)}
+                />
+                <input
+                  className="input-field"
+                  onChange={(event) =>
+                    updateAction(selectedAction.id, {
+                      endX: clamp(Number(event.target.value), 3, 97),
+                    })
+                  }
+                  type="number"
+                  value={Math.round(selectedAction.endX)}
+                />
+                <input
+                  className="input-field"
+                  onChange={(event) =>
+                    updateAction(selectedAction.id, {
+                      endY: clamp(Number(event.target.value), 2, 98),
+                    })
+                  }
+                  type="number"
+                  value={Math.round(selectedAction.endY)}
+                />
+              </div>
+            </div>
+          ) : (
+            <p className="empty-state">
+              Select an action line on the board to edit or remove it.
+            </p>
           )}
         </section>
 

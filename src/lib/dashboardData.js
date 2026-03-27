@@ -121,6 +121,7 @@ export const createBoardTemplate = (name = 'New play board') => ({
   name,
   notes: '',
   pieces: createBoardPieces(),
+  actions: [],
   frames: [],
 });
 
@@ -130,6 +131,24 @@ export const seedCoachBoards = [
     name: 'Horns entry',
     notes: 'Use this to walk through the initial alignment and the first action.',
     pieces: createBoardPieces(),
+    actions: [
+      {
+        id: 'action-1',
+        type: 'cut',
+        startX: 52,
+        startY: 68,
+        endX: 78,
+        endY: 40,
+      },
+      {
+        id: 'action-2',
+        type: 'screen',
+        startX: 38,
+        startY: 76,
+        endX: 46,
+        endY: 64,
+      },
+    ],
     frames: [
       createBoardPieces(),
       createBoardPieces().map((piece) => {
@@ -183,13 +202,19 @@ export const createInitialDashboardState = () => ({
 export const normalizeDashboardPayload = (payload) => {
   const fallback = createInitialDashboardState();
   const data = payload?.data ?? fallback.data;
+  const coachBoards = (data.coachBoards ?? fallback.data.coachBoards).map((board) => ({
+    ...board,
+    actions: board.actions ?? [],
+    frames: board.frames ?? [],
+    pieces: board.pieces ?? [],
+  }));
 
   return {
     data: {
       teams: data.teams ?? fallback.data.teams,
       players: data.players ?? fallback.data.players,
       trainingPlans: data.trainingPlans ?? fallback.data.trainingPlans,
-      coachBoards: data.coachBoards ?? fallback.data.coachBoards,
+      coachBoards,
       preGamePlans: data.preGamePlans ?? fallback.data.preGamePlans,
       postGameReflections:
         data.postGameReflections ?? fallback.data.postGameReflections,
